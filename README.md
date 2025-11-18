@@ -4,19 +4,30 @@ A utility for converting Game Boy Advance save files between mGBA and VBA format
 
 ## Overview
 
-This tool solves the binary incompatibility between mGBA (default emulator on MuOS) and VBA (standard on PC/Mac) by removing the 16-byte RTC footer that mGBA appends to save files.
+This tool solves the binary incompatibility between mGBA (default emulator on MuOS) and VBA (standard on PC/Mac) save files. It provides **bidirectional conversion** between the two formats.
 
 ### Save File Formats
 
 - **mGBA Format**: 131,088 bytes (128KB + 16-byte RTC footer)
 - **VBA/Standard Format**: 131,072 bytes (128KB)
 
-The converter detects mGBA saves and converts them to the standard VBA format, making them compatible with PC/Mac emulators and flashcarts.
+The converter can:
+- **mGBA → VBA**: Remove the 16-byte RTC footer for compatibility with PC/Mac emulators and flashcarts
+- **VBA → mGBA**: Add an RTC footer to standard saves for use with mGBA on MuOS
 
 ## Features
 
+- **Bidirectional Conversion**: Convert between mGBA and VBA formats in both directions
 - **Interactive TUI**: whiptail-based menu system optimized for 720x480 display
-- **Automatic Detection**: Identifies save file format by size
+- **Format Detection**: Automatically identifies save file format (mGBA/VBA) and displays it
+- **Flexible Conversion Modes**:
+  - Auto-detect: Automatically determines conversion direction
+  - Manual selection: Choose specific conversion direction (to-vba or to-mgba)
+- **Enhanced Error Handling**:
+  - File permission validation
+  - Disk space checking
+  - File integrity verification
+  - Detailed error messages
 - **Safe Conversion**: Creates .bak backup before modifying files
 - **Atomic Operations**: Uses fsync() to prevent corruption if device sleeps mid-write
 - **Dual-Path Search**: Scans both SD card slots for .sav files
@@ -54,13 +65,35 @@ The converter detects mGBA saves and converts them to the standard VBA format, m
 
 ## Usage
 
+### Interactive Mode (On Device)
+
 1. Launch "GBA Save Fixer" from the MuOS Applications menu
-2. Select a .sav file from the list
-3. Confirm the conversion
-4. The tool will:
+2. **Select a save file** from the list (files show format: mGBA/VBA)
+3. **Choose conversion direction**:
+   - **Auto** (recommended): Automatically converts based on current format
+   - **to-vba**: Force conversion to VBA format (removes RTC footer)
+   - **to-mgba**: Force conversion to mGBA format (adds RTC footer)
+4. **Confirm** the conversion details
+5. The tool will:
    - Create a backup (.bak file)
-   - Remove the 16-byte RTC footer
+   - Perform the conversion
+   - Verify the result
    - Display conversion results
+
+### Command Line Mode
+
+You can also use the converter directly from the command line:
+
+```bash
+# Auto-detect and convert
+python3 convert.py /path/to/savefile.sav
+
+# Force conversion to VBA format
+python3 convert.py /path/to/savefile.sav to-vba
+
+# Force conversion to mGBA format
+python3 convert.py /path/to/savefile.sav to-mgba
+```
 
 ## Development & Testing
 
@@ -97,13 +130,26 @@ python3 GBA_Fixer/convert.py /path/to/savefile.sav
 - **Display**: 720x480 (3:2 aspect ratio)
 - **Python**: 3.x (pre-installed on MuOS)
 
-### Conversion Algorithm
+### Conversion Algorithms
+
+#### mGBA → VBA (Remove RTC Footer)
 
 1. **Detection**: Check file size (131,088 bytes = mGBA format)
-2. **Validation**: Verify file exists and size is valid
+2. **Validation**: Verify file exists, permissions, and disk space
 3. **Backup**: Create .bak copy of original
-4. **Sanitization**: Truncate last 16 bytes (RTC footer)
-5. **Result**: Standard 131,072 byte VBA-compatible file
+4. **Conversion**: Truncate last 16 bytes (RTC footer)
+5. **Verification**: Confirm result is exactly 131,072 bytes
+6. **Result**: Standard VBA-compatible file
+
+#### VBA → mGBA (Add RTC Footer)
+
+1. **Detection**: Check file size (131,072 bytes = VBA format)
+2. **Validation**: Verify file exists, permissions, and disk space
+3. **Backup**: Create .bak copy of original
+4. **RTC Generation**: Create 16-byte footer with current timestamp
+5. **Conversion**: Append RTC footer to save data
+6. **Verification**: Confirm result is exactly 131,088 bytes
+7. **Result**: mGBA-compatible file with RTC support
 
 ### File Locations
 
@@ -116,7 +162,17 @@ The tool searches for .sav files in:
 - **Automatic Backups**: Original file saved as `.bak` before conversion
 - **Atomic Writes**: Uses temporary files and fsync() to ensure data integrity
 - **Sleep Protection**: File operations complete atomically to prevent corruption if device sleeps
-- **Validation**: Checks file size and format before conversion
+- **Comprehensive Validation**:
+  - File existence and type checking
+  - File size validation (must be exactly 131,072 or 131,088 bytes)
+  - Read/write permission verification
+  - Directory write access validation
+  - Minimum disk space checking (1MB required)
+  - Post-conversion verification
+- **Error Recovery**:
+  - Automatic cleanup of temporary files on failure
+  - Detailed error messages for troubleshooting
+  - Graceful handling of edge cases
 
 ## License
 
